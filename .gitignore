@@ -1,0 +1,6 @@
+__pycache__
+.vscode
+.env
+imoveis.db
+.env-example
+/out

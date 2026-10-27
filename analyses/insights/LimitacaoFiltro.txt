@@ -1,0 +1,8 @@
+Vivareal limita paginação em 50 páginas
+
+Se eu tentar fazer o scrapping sem nenhum filtro e de maneira sequêncial pagina 1,2,3... sempre vou ficar limitado a apenas 800-1200 imóveis 
+considerando a média de 30 imóveis por página, por isso vou definir um filtro de preço de modo que seja tão restritos que os resultados
+vão ser menos que 50 páginas.
+
+
+Criar um uuid unico 
