@@ -1,6 +1,6 @@
 import sqlite3
-
-class ClientDatabase:
+from model.client.protocol import Protocol
+class ClientDatabase(Protocol):
 
     def __init__(self, caminho_banco: str):
         self.conexao = sqlite3.connect(caminho_banco)

@@ -12,6 +12,9 @@ import os
 from dotenv import load_dotenv
 from engine.modelos.TiposMotor import Faixa
 from engine.erros.BloqueioDetectado import Bloqueio
+from engine.erros.FiltroDePrecoIgnorado import FiltroDePrecoIgnorado
+
+
 load_dotenv()
 
 PASTA_SAIDA = Path(os.getenv("PASTA_SAIDA"))
@@ -46,10 +49,6 @@ def configurar_log():
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-
-
-class FiltroDePrecoIgnorado(Exception):
-    """Todos os imóveis de uma página vieram fora da faixa pedida."""
 
 
 URL_LISTAGEM_FAIXA = (
