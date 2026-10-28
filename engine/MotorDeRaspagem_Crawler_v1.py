@@ -10,7 +10,8 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 import os
 from dotenv import load_dotenv
-
+from engine.modelos.TiposMotor import Faixa
+from engine.erros.BloqueioDetectado import Bloqueio
 load_dotenv()
 
 PASTA_SAIDA = Path(os.getenv("PASTA_SAIDA"))
@@ -45,8 +46,6 @@ def configurar_log():
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-class BloqueioDetectado(Exception):
-    """O site respondeu 401/403: continuar só pioraria o bloqueio."""
 
 
 class FiltroDePrecoIgnorado(Exception):
@@ -100,7 +99,7 @@ class MotorDeRaspagem:
     def __init__(
         self,
         caminho_banco=CAMINHO_BANCO,
-        passo_faixa_preco=5000,
+        passo_faixa_preco=5000, # Varíavel que vai ser utilizada no incremento de valor_faixa_atual + passo_faixa_preco. 
         segundos_espera_minimo=2,
         segundos_espera_maximo=4,
     ):
@@ -202,14 +201,14 @@ class MotorDeRaspagem:
 
     def adicionar_faixa(self, preco_minimo, preco_maximo):
         # 8. Pode ser chamado sempre: se a faixa já existe, não faz nada
-        if preco_minimo > preco_maximo:
+        if preco_minimo > preco_maximo: # Regra de negócio preco minimo não pode exceder o máximo
             raise ValueError("preco_minimo não pode ser maior que preco_maximo")
 
         existente = self.conexao_banco.execute(
             "SELECT id FROM faixas_preco WHERE preco_minimo = ? AND preco_maximo = ?",
             (preco_minimo, preco_maximo),
         ).fetchone()
-        if existente:
+        if existente: # Se Faixa com as ranges já existem <--
             registro_log.info("Faixa %s-%s já existe (id %s)", preco_minimo, preco_maximo, existente[0])
             return existente[0]
 
@@ -228,7 +227,7 @@ class MotorDeRaspagem:
 
         agora = datetime.now().isoformat()
         with self.conexao_banco:
-            cursor = self.conexao_banco.execute(
+            cursor = self.conexao_banco.execute(  # Insere faixas
                 """
                 INSERT INTO faixas_preco
                 (preco_minimo, preco_maximo, segmento_valor, data_criacao, data_atualizacao)
@@ -239,20 +238,20 @@ class MotorDeRaspagem:
         registro_log.info("Faixa %s-%s criada (id %s)", preco_minimo, preco_maximo, cursor.lastrowid)
         return cursor.lastrowid
 
-    def criar_proxima_faixa(self):
+    def criar_proxima_faixa(self) -> Faixa|None:  # Não Insere nova faixa, apenas monta os paramêtros para a querie. 
         # 10. A próxima começa em "maior preço já cadastrado + 1", sem buracos
         maior_preco_cadastrado = self.conexao_banco.execute(
             "SELECT MAX(preco_maximo) FROM faixas_preco"
         ).fetchone()[0]
-        if maior_preco_cadastrado is None:
-            return None
+        if maior_preco_cadastrado is None: # Caso nenhuma faixa esteja cadastrada no sistema.
+            return None 
 
         novo_minimo = maior_preco_cadastrado + 1
         novo_maximo = maior_preco_cadastrado + self.passo_faixa_preco
-        self.adicionar_faixa(novo_minimo, novo_maximo)
-        return self.obter_proxima_faixa_aberta()
+        self.adicionar_faixa(novo_minimo, novo_maximo) # <- Insert no database
+        return self.obter_proxima_faixa_aberta() # <- Retorna próxima faixa.
 
-    def obter_proxima_faixa_aberta(self):
+    def obter_proxima_faixa_aberta(self) -> Faixa | None: 
         linha = self.conexao_banco.execute(
             """
             SELECT id, preco_minimo, preco_maximo, numero_paginas
@@ -262,7 +261,7 @@ class MotorDeRaspagem:
             LIMIT 1
             """
         ).fetchone()
-        if linha is None:
+        if linha is None: # Caso Não exista nennhuma faixa aberta.
             return None
         return {
             "id": linha[0],
@@ -348,7 +347,7 @@ class MotorDeRaspagem:
             # Se o site mandar Retry-After maior que a pausa padrão, respeita o dele
             pausas_por_429_nesta_pagina += 1
             if pausas_por_429_nesta_pagina > MAXIMO_PAUSAS_SEGUIDAS_POR_429:
-                raise BloqueioDetectado(
+                raise Bloqueio(
                     f"429 persistente: {MAXIMO_PAUSAS_SEGUIDAS_POR_429} pausas seguidas não bastaram "
                     f"na faixa {faixa['preco_minimo']}-{faixa['preco_maximo']} página {numero_pagina}"
                 )
@@ -367,7 +366,7 @@ class MotorDeRaspagem:
 
         # 12. 401/403 é bloqueio: não adianta tentar de novo
         if resposta.status_code in (401, 403):
-            raise BloqueioDetectado(
+            raise Bloqueio(
                 f"Status {resposta.status_code} na faixa {faixa['preco_minimo']}-"
                 f"{faixa['preco_maximo']} página {numero_pagina}"
             )
@@ -510,7 +509,7 @@ class MotorDeRaspagem:
         )
 
         # Defesa: faixa aberta já na página 50 (não deveria ocorrer, a transação é única)
-        if pagina_inicial > LIMITE_PAGINAS_SITE:
+        if pagina_inicial > LIMITE_PAGINAS_SITE: # <- Regra de interrupção da faixa.
             with self.conexao_banco:
                 self.atualizar_progresso_faixa(
                     faixa["id"], LIMITE_PAGINAS_SITE, 0, "limite_50_paginas",
@@ -571,10 +570,10 @@ class MotorDeRaspagem:
 
         try:
             while True:
-                faixa_atual = self.obter_proxima_faixa_aberta()
+                faixa_atual = self.obter_proxima_faixa_aberta() # Verificar Se existe faixa Aberta, Se não tiver = none
                 if faixa_atual is None:
-                    faixa_atual = self.criar_proxima_faixa()
-                if faixa_atual is None:
+                    faixa_atual = self.criar_proxima_faixa() # Criar nova faixa.
+                if faixa_atual is None:  # É preciso pelo menoss 1 faixa no data.base
                     registro_log.error(
                         "Tabela faixas_preco vazia. Cadastre a primeira faixa, "
                         "por exemplo motor.adicionar_faixa(100000, 105000)."
@@ -601,7 +600,7 @@ class MotorDeRaspagem:
 
         except KeyboardInterrupt:
             registro_log.warning("Interrompido pelo usuário (Ctrl+C). %s", self.descrever_retomada(faixa_atual))
-        except BloqueioDetectado as erro:
+        except Bloqueio as erro:
             registro_log.error("BLOQUEIO DETECTADO: %s. %s", erro, self.descrever_retomada(faixa_atual))
         except FiltroDePrecoIgnorado as erro:
             registro_log.error("FILTRO DE PREÇO IGNORADO: %s. %s", erro, self.descrever_retomada(faixa_atual))
