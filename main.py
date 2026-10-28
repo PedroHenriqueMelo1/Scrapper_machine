@@ -1,4 +1,4 @@
-from engine.MotorDeRaspagem_Crawler_v1 import MotorDeRaspagem, configurar_log
+from engine.motores.MotorDeRaspagem_Crawler_v1 import MotorDeRaspagem, configurar_log
 
 
 
