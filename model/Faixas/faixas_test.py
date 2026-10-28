@@ -1,14 +1,14 @@
-
 import sqlite3
 
 from model.Faixas.Repositorio_Faixas import Repositorio_Faixas
+from model.client.ClienteBanco import ClientDatabase
 
 
 def test_adicionar_faixa():
     # Arrange: prepara o banco de teste
-    conexao = sqlite3.connect(":memory:")
+    cliente = ClientDatabase(":memory:")
 
-    conexao.execute("""
+    cliente.executar_query("""
         CREATE TABLE faixas_preco (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             preco_minimo INTEGER NOT NULL,
@@ -25,7 +25,7 @@ def test_adicionar_faixa():
         )
     """)
 
-    repositorio = Repositorio_Faixas(conexao)
+    repositorio = Repositorio_Faixas(cliente)
 
     # Act: executa o método que queremos testar
     faixa_id = repositorio.adicionar_faixa(100_000, 105_000)
@@ -33,11 +33,11 @@ def test_adicionar_faixa():
     # Assert: verifica se a faixa foi cadastrada
     assert faixa_id == 1
 
-    resultado = conexao.execute(
+    resultado = cliente.executar_query(
         "SELECT preco_minimo, preco_maximo FROM faixas_preco WHERE id = ?",
         (faixa_id,),
     ).fetchone()
 
     assert resultado == (100_000, 105_000)
 
-    conexao.close()
+    cliente.conexao.close()
