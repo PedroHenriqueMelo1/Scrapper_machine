@@ -11,3 +11,16 @@ totalizando 2300 apartamentos únicos.
 
 Próximo passo: desacoplar o banco de dados do Motor de Raspagem, em vez disso vamos Compor uma classe que vai gerênciar essas conexões
 porém ela só vai ser instânciada dentro do motor, ou seja criamos uma relação direta, se o motor morrer a instância também morre evitando conexão aberta.
+
+Concluido.
+
+28/10 17:00 Atualmente 88.738 registros 
+Existem aproxidamentes mais 320k~ de  registros disponíveis para raspar, porém 
+vou desenvolver o segundo motor com apenas 100k~ registros, o primeiro motor foi o crawler que pegou as URIS que estão os dados
+agora o segundo motor, vai entrar em cada URI e vai extrair o conteúdo lá de dentro, vou criar uma tabela row_imoveis que vai 
+armazenar esses registros.
+
+Normalização: Como a intenção agora não é acompanhar lastros de preço de um determinado imóvel num periodo de tempo não vou normalizar os dados
+provalvemente isso vai ficar pra algo futuro
+
+Proximo passo: Criar motor de raspagem , tabela interfaces e repositórios.

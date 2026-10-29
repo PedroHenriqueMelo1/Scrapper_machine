@@ -172,7 +172,7 @@ class MotorDeRaspagem:
         with self.conexao_banco.conexao:
             self.conexao_banco.executar_query(
                 """
-                CREATE TABLE IF NOT EXISTS imoveis (
+                CREATE TABLE IF NOT EXISTS raw_anuncios (
                     id TEXT PRIMARY KEY,
                     url TEXT,
                     tipo TEXT,
@@ -190,10 +190,10 @@ class MotorDeRaspagem:
 
             # 6. Banco antigo não tem a coluna faixa_id: adiciona sem perder dados
             colunas_existentes = {
-                linha[1] for linha in self.conexao_banco.executar_query("PRAGMA table_info(imoveis)")
+                linha[1] for linha in self.conexao_banco.executar_query("PRAGMA table_info(raw_anuncios)")
             }
             if "faixa_id" not in colunas_existentes:
-                self.conexao_banco.executar_query("ALTER TABLE imoveis ADD COLUMN faixa_id INTEGER")
+                self.conexao_banco.executar_query("ALTER TABLE raw_anuncios ADD COLUMN faixa_id INTEGER")
 
         # 7. A tabela de controle faixas_preco agora é criada pelo repositório
         self.faixas_repo.criar_tabela()
@@ -204,15 +204,15 @@ class MotorDeRaspagem:
 
     def registrar_resumo(self):
         linhas = self.faixas_repo.obter_resumo_por_situacao()
-        total_imoveis = self.conexao_banco.executar_query("SELECT COUNT(*) FROM imoveis").fetchone()[0]
+        total_imoveis = self.conexao_banco.executar_query("SELECT COUNT(*) FROM raw_anuncios").fetchone()[0]
 
         registro_log.info("=== Resumo do banco ===")
         for finalizado, motivo, quantidade, soma_novos in linhas:
             registro_log.info(
-                "finalizado=%s motivo=%s: %s faixas, %s imóveis novos",
+                "finalizado=%s motivo=%s: %s faixas, %s anúncios novos",
                 finalizado, motivo, quantidade, soma_novos or 0,
             )
-        registro_log.info("Total de imóveis na tabela: %s", total_imoveis)
+        registro_log.info("Total de anúncios na tabela: %s", total_imoveis)
 
     # ---------- coleta ----------
 
@@ -315,7 +315,7 @@ class MotorDeRaspagem:
     def salvar_imovel(self, dados_imovel, numero_pagina, faixa_id):
         cursor = self.conexao_banco.executar_query(
             """
-            INSERT OR IGNORE INTO imoveis
+            INSERT OR IGNORE INTO raw_anuncios
             (id, url, tipo, quartos, bairro, zona, tem_garagem, area_m2, preco,
              pagina_descoberta, data_coleta, faixa_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
